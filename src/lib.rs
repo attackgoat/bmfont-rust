@@ -23,8 +23,9 @@ use self::char::Char;
 use self::kerning_value::KerningValue;
 use self::page::Page;
 use self::sections::Sections;
+use std::char::decode_utf16;
 use std::io::Read;
-use std::iter::Peekable;
+use std::iter::{once, Peekable};
 use std::str::Chars;
 
 /// Alias of either [`Result<Vec<CharPosition>, StringParseError>`] _or_ [`Vec<CharPosition>`],
@@ -53,6 +54,9 @@ type ParseLines<'a> = LineIter<'a>;
 
 #[derive(Clone, Debug)]
 pub struct CharPosition {
+    /// The leading character, if present, which induced a kerning value on the position of this
+    /// character.
+    pub kerning_char: Option<char>,
     pub page_rect: Rect,
     pub screen_rect: Rect,
     pub page_index: u32,
@@ -463,11 +467,11 @@ impl<'a> Iterator for ParseLineIter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         match self.chars.next() {
             Some(char) => {
-                let kerning_value = self
+                let (kerning_char_id, kerning_value) = self
                     .kerning_values
                     .find(|k| k.second_char_id == char.id)
-                    .map(|k| k.value)
-                    .unwrap_or(0);
+                    .map(|k| (Some(k.first_char_id), k.value))
+                    .unwrap_or((None, 0));
                 let page_rect = Rect {
                     x: char.x as i32,
                     y: char.y as i32,
@@ -488,6 +492,13 @@ impl<'a> Iterator for ParseLineIter<'a> {
                     height: char.height,
                 };
                 let char_position = CharPosition {
+                    kerning_char: kerning_char_id.map(|char_id| {
+                        decode_utf16(once(char_id as u16))
+                            .into_iter()
+                            .next()
+                            .unwrap()
+                            .unwrap()
+                    }),
                     page_rect,
                     screen_rect,
                     page_index: char.page_index,

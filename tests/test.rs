@@ -3,6 +3,7 @@ extern crate bmfont;
 extern crate serde_json;
 
 use bmfont::{BMFont, CharPosition, OrdinateOrientation, Rect};
+use itertools::izip;
 use serde_json::{from_str, to_string_pretty};
 use std::fs::{read_to_string, File};
 use std::io::Cursor;
@@ -46,6 +47,10 @@ fn assert_rect_equal(rect: &Rect, another_rect: &Rect) {
 }
 
 fn assert_char_positions_equal(char_position: &CharPosition, another_char_position: &CharPosition) {
+    assert_eq!(
+        char_position.kerning_char,
+        another_char_position.kerning_char
+    );
     assert_rect_equal(&char_position.page_rect, &another_char_position.page_rect);
     assert_rect_equal(
         &char_position.screen_rect,
@@ -54,8 +59,13 @@ fn assert_char_positions_equal(char_position: &CharPosition, another_char_positi
     assert_eq!(char_position.page_index, another_char_position.page_index);
 }
 
-fn create_char_position(page_rect: Rect, screen_rect: Rect) -> CharPosition {
+fn create_char_position(
+    kerning_char: Option<char>,
+    page_rect: Rect,
+    screen_rect: Rect,
+) -> CharPosition {
     CharPosition {
+        kerning_char,
         page_rect: page_rect,
         screen_rect: screen_rect,
         page_index: 0,
@@ -226,8 +236,11 @@ fn screen_rect_for_u_in_you_word(y: i32) -> Rect {
 fn assert_single_character_parsed_correctly(orientation: OrdinateOrientation, y: i32) {
     let char_positions = parse(UNDERSCORE_CHARACTER, orientation);
     assert_eq!(char_positions.len(), UNDERSCORE_CHARACTER.len());
-    let char_position =
-        create_char_position(page_rect_for_underscore(), screen_rect_for_underscore(y));
+    let char_position = create_char_position(
+        None,
+        page_rect_for_underscore(),
+        screen_rect_for_underscore(y),
+    );
     assert_char_positions_equal(&char_positions[0], &char_position);
 }
 
@@ -256,7 +269,7 @@ fn assert_text_parsed_correctly(orientation: OrdinateOrientation, line_count: u3
             .enumerate();
         for (i, (page_rect, screen_rect)) in iter {
             let actual = &char_positions[line as usize * RUST_WORD.len() + i];
-            let expected = create_char_position(page_rect, screen_rect);
+            let expected = create_char_position(None, page_rect, screen_rect);
             assert_char_positions_equal(actual, &expected);
         }
     }
@@ -265,19 +278,18 @@ fn assert_text_parsed_correctly(orientation: OrdinateOrientation, line_count: u3
 fn assert_letters_with_kerning_parsed_correctly(orientation: OrdinateOrientation, ys: [i32; 3]) {
     let char_positions = parse(YOU_WORD, orientation);
     assert_eq!(char_positions.len(), YOU_WORD.len());
+    let kerning_chars = vec![None, Some('Y'), None];
     let page_rects = page_rects_for_you_word();
     let screen_rects = vec![
         screen_rect_for_capital_y_in_you_word(ys[0]),
         screen_rect_for_o_in_you_word(ys[1]),
         screen_rect_for_u_in_you_word(ys[2]),
     ];
-    let iter = page_rects
-        .into_iter()
-        .zip(screen_rects.into_iter())
-        .enumerate();
-    for (i, (page_rect, screen_rect)) in iter {
+    for (i, (kerning_char, page_rect, screen_rect)) in
+        izip!(kerning_chars, page_rects, screen_rects).enumerate()
+    {
         let actual = &char_positions[i];
-        let expected = create_char_position(page_rect, screen_rect);
+        let expected = create_char_position(kerning_char, page_rect, screen_rect);
         assert_char_positions_equal(actual, &expected);
     }
 }
