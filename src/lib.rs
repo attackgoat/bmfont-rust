@@ -54,6 +54,7 @@ type ParseLines<'a> = LineIter<'a>;
 
 #[derive(Clone, Debug)]
 pub struct CharPosition {
+    pub char: char,
     /// The leading character, if present, which induced a kerning value on the position of this
     /// character.
     pub kerning_char: Option<char>,
@@ -492,6 +493,11 @@ impl<'a> Iterator for ParseLineIter<'a> {
                     height: char.height,
                 };
                 let char_position = CharPosition {
+                    char: decode_utf16(once(char.id as u16))
+                        .into_iter()
+                        .next()
+                        .unwrap()
+                        .unwrap(),
                     kerning_char: kerning_char_id.map(|char_id| {
                         decode_utf16(once(char_id as u16))
                             .into_iter()

@@ -60,11 +60,13 @@ fn assert_char_positions_equal(char_position: &CharPosition, another_char_positi
 }
 
 fn create_char_position(
+    char: char,
     kerning_char: Option<char>,
     page_rect: Rect,
     screen_rect: Rect,
 ) -> CharPosition {
     CharPosition {
+        char,
         kerning_char,
         page_rect: page_rect,
         screen_rect: screen_rect,
@@ -237,6 +239,7 @@ fn assert_single_character_parsed_correctly(orientation: OrdinateOrientation, y:
     let char_positions = parse(UNDERSCORE_CHARACTER, orientation);
     assert_eq!(char_positions.len(), UNDERSCORE_CHARACTER.len());
     let char_position = create_char_position(
+        UNDERSCORE_CHARACTER.chars().next().unwrap(),
         None,
         page_rect_for_underscore(),
         screen_rect_for_underscore(y),
@@ -263,13 +266,15 @@ fn assert_text_parsed_correctly(orientation: OrdinateOrientation, line_count: u3
             line * LINE_HEIGHT + ys[2],
             line * LINE_HEIGHT + ys[3],
         ]);
-        let iter = page_rects
-            .into_iter()
-            .zip(screen_rects.into_iter())
-            .enumerate();
-        for (i, (page_rect, screen_rect)) in iter {
+        let iter = izip!(
+            RUST_WORD.chars(),
+            page_rects.into_iter(),
+            screen_rects.into_iter()
+        )
+        .enumerate();
+        for (i, (char, page_rect, screen_rect)) in iter {
             let actual = &char_positions[line as usize * RUST_WORD.len() + i];
-            let expected = create_char_position(None, page_rect, screen_rect);
+            let expected = create_char_position(char, None, page_rect, screen_rect);
             assert_char_positions_equal(actual, &expected);
         }
     }
@@ -285,11 +290,11 @@ fn assert_letters_with_kerning_parsed_correctly(orientation: OrdinateOrientation
         screen_rect_for_o_in_you_word(ys[1]),
         screen_rect_for_u_in_you_word(ys[2]),
     ];
-    for (i, (kerning_char, page_rect, screen_rect)) in
-        izip!(kerning_chars, page_rects, screen_rects).enumerate()
+    for (i, (char, kerning_char, page_rect, screen_rect)) in
+        izip!(YOU_WORD.chars(), kerning_chars, page_rects, screen_rects).enumerate()
     {
         let actual = &char_positions[i];
-        let expected = create_char_position(kerning_char, page_rect, screen_rect);
+        let expected = create_char_position(char, kerning_char, page_rect, screen_rect);
         assert_char_positions_equal(actual, &expected);
     }
 }
