@@ -23,8 +23,9 @@ use self::char::Char;
 use self::kerning_value::KerningValue;
 use self::page::Page;
 use self::sections::Sections;
+use std::char::decode_utf16;
 use std::io::Read;
-use std::iter::Peekable;
+use std::iter::{once, Peekable};
 use std::str::Chars;
 
 /// Alias of either [`Result<Vec<CharPosition>, StringParseError>`] _or_ [`Vec<CharPosition>`],
@@ -53,9 +54,21 @@ type ParseLines<'a> = LineIter<'a>;
 
 #[derive(Clone, Debug)]
 pub struct CharPosition {
+    pub id: u32,
     pub page_rect: Rect,
     pub screen_rect: Rect,
     pub page_index: u32,
+}
+
+impl CharPosition {
+    /// Returns the character this position describes.
+    pub fn char(&self) -> char {
+        decode_utf16(once(self.id as u16))
+            .into_iter()
+            .next()
+            .unwrap()
+            .unwrap()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -488,6 +501,7 @@ impl<'a> Iterator for ParseLineIter<'a> {
                     height: char.height,
                 };
                 let char_position = CharPosition {
+                    id: char.id,
                     page_rect,
                     screen_rect,
                     page_index: char.page_index,
